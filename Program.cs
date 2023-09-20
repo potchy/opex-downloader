@@ -1,6 +1,4 @@
-﻿using ByteSizeLib;
-using Flurl;
-using OpenQA.Selenium;
+﻿using OpenQA.Selenium;
 using OpenQA.Selenium.Firefox;
 using OpenQA.Selenium.Support.UI;
 using System.Text.RegularExpressions;
@@ -24,11 +22,13 @@ namespace OpexDownloader
             }
 
             var driverOptions = new FirefoxOptions();
-            driverOptions.AddArgument("--headless");
+            //driverOptions.AddArgument("--headless");
+            driverOptions.SetPreference("browser.download.folderList", 2);
+            driverOptions.SetPreference("browser.download.dir", actualDownloadDirectory);
+            driverOptions.SetPreference("browser.helperApps.neverAsk.saveToDisk", "video/mp4");
             driverOptions.BrowserExecutableLocation = firefoxLocation;
+            
             using var driver = new FirefoxDriver(driverOptions);
-
-            using var httpClient = new HttpClient();
             int count = 0;
 
         linkHasExpired:
@@ -36,7 +36,6 @@ namespace OpexDownloader
 
             IEnumerable<IWebElement> episodeElements = driver.FindElements(By.CssSelector("article.episodiov5"));
             episodeElements = episodeElements.Skip(count);
-
             foreach (IWebElement episodeElement in episodeElements)
             {
                 IWebElement episodeNumberElement = episodeElement.FindElement(By.XPath("a/header/h1/strong"));
@@ -57,7 +56,6 @@ namespace OpexDownloader
                 if (alreadyDownloaded)
                 {
                     Console.WriteLine("Skipped.");
-
                     count++;
                     continue;
                 }
@@ -71,63 +69,49 @@ namespace OpexDownloader
                 driver.ExecuteScript("arguments[0].click();", downloadRedirectElement);
                 driver.SwitchTo().Window(driver.WindowHandles.Last());
 
-                IWebElement downloadButtonElement;
-                try
-                {
-                    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-                    wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
-
-                    downloadButtonElement = wait.Until(a => a.FindElement(By.XPath("//a[text() = \"Baixar\" and string(@href)]")));
-                }
-                catch (WebDriverTimeoutException ex)
-                {
-                    Console.WriteLine("Link has expired. Reloading...");
-
-                    driver.Close();
-                    driver.SwitchTo().Window(driver.WindowHandles.First());
-                    goto linkHasExpired;
-                }
-
-                Url downloadLink = downloadButtonElement.GetAttribute("href");
-                using HttpResponseMessage response = await httpClient.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
-
-                string filePath = Path.Combine(actualDownloadDirectory, downloadLink.PathSegments.Last());
-                string temporaryFilePath = filePath + ".tmp";
-
                 (int Left, int Top) cursorPosition = Console.GetCursorPosition();
-                long totalSize = response.Content.Headers.ContentLength.GetValueOrDefault();
-                long totalBytesRead = 0;
 
-                var buffer = new byte[(int)ByteSize.FromMegaBytes(1).Bytes];
-                using (var fileStream = new FileStream(temporaryFilePath, FileMode.Create, FileAccess.Write, FileShare.Read, buffer.Length, useAsync: true))
-                using (Stream contentStream = await response.Content.ReadAsStreamAsync())
+                while (true)
                 {
-                    int bytesRead;
-
-                    do
+                    try
                     {
-                        bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length);
+                        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(1));
+                        wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
 
-                        if (bytesRead > 0)
-                        {
-                            await fileStream.WriteAsync(buffer, 0, bytesRead);
-                            totalBytesRead += bytesRead;
-                        }
-
-                        double percentage = (double)totalBytesRead / totalSize;
-                        Console.SetCursorPosition(cursorPosition.Left, cursorPosition.Top);
-                        Console.Write($"{ByteSize.FromBytes(totalBytesRead)} / {ByteSize.FromBytes(totalSize)} = {percentage:0.00%}");
+                        wait.Until(a => a.FindElement(By.XPath("//a[@id=\"link-final\" and @data-clicked=\"true\"]")));
+                        await Task.Delay(10000);
+                        break;
                     }
-                    while (bytesRead > 0);
+                    catch (WebDriverTimeoutException ex)
+                    {
+                    }
+
+                    try
+                    {
+                        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
+                        wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
+
+                        IWebElement downloadedElement = wait.Until(a => a.FindElement(By.Id("downloaded")));
+                        IWebElement totalSizeElement = wait.Until(a => a.FindElement(By.Id("totalSize")));
+                        IWebElement progressLabelElement = wait.Until(a => a.FindElement(By.Id("progressLabel")));
+
+                        Console.SetCursorPosition(cursorPosition.Left, cursorPosition.Top);
+                        Console.Write($"{downloadedElement.Text} / {totalSizeElement.Text} = {progressLabelElement.Text}");
+                    }
+                    catch (WebDriverTimeoutException ex)
+                    {
+                        Console.WriteLine("Link has expired. Reloading...");
+
+                        driver.Close();
+                        driver.SwitchTo().Window(driver.WindowHandles.First());
+                        goto linkHasExpired;
+                    }                    
                 }
 
-                File.Move(temporaryFilePath, filePath);
                 driver.Close();
                 driver.SwitchTo().Window(driver.WindowHandles.First());
 
                 Console.WriteLine();
-                count++;
             }
         }
     }
