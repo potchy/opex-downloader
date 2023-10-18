@@ -112,8 +112,15 @@ namespace OpexDownloader
                         IWebElement totalSizeElement = wait.Until(a => a.FindElement(By.Id("totalSize")));
                         IWebElement progressLabelElement = wait.Until(a => a.FindElement(By.Id("progressLabel")));
 
-                        Console.SetCursorPosition(cursorPosition.Left, cursorPosition.Top);
-                        Console.Write($"{downloadedElement.Text} / {totalSizeElement.Text} = {progressLabelElement.Text}");
+                        if (new[] { downloadedElement.Text, totalSizeElement.Text, progressLabelElement.Text }.All(a => !string.IsNullOrWhiteSpace(a)))
+                        {
+                            Console.SetCursorPosition(cursorPosition.Left, cursorPosition.Top);
+                            Console.Write(new string(' ', Console.BufferWidth - cursorPosition.Left));
+                            Console.SetCursorPosition(cursorPosition.Left, cursorPosition.Top);
+                            Console.Write($"{downloadedElement.Text} / {totalSizeElement.Text} = {progressLabelElement.Text}");
+                        }
+
+                        await Task.Delay(1000);
                     }
                     catch (WebDriverTimeoutException ex)
                     {
