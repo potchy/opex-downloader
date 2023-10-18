@@ -45,9 +45,6 @@ namespace OpexDownloader
                 bool alreadyDownloaded = Directory.EnumerateFiles(checkDownloadDirectory, "*", SearchOption.AllDirectories)
                     .Any(delegate (string filePath)
                     {
-                        if (filePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
-                            return false;
-
                         string fileName = Path.GetFileName(filePath);
                         string pattern = $"[ _-]0*{episodeNumber}[ _-]";
                         return Regex.IsMatch(fileName, pattern);
