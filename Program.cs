@@ -27,7 +27,7 @@ namespace OpexDownloader
             driverOptions.SetPreference("browser.download.dir", actualDownloadDirectory);
             driverOptions.SetPreference("browser.helperApps.neverAsk.saveToDisk", "video/mp4");
             driverOptions.BrowserExecutableLocation = firefoxLocation;
-            
+
             using var driver = new FirefoxDriver(driverOptions);
             int count = 0;
 
@@ -108,6 +108,7 @@ namespace OpexDownloader
                         var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
                         wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
 
+                        // if app reaches this line, it means the download is still ongoing.
                         IWebElement downloadedElement = wait.Until(a => a.FindElement(By.Id("downloaded")));
                         IWebElement totalSizeElement = wait.Until(a => a.FindElement(By.Id("totalSize")));
                         IWebElement progressLabelElement = wait.Until(a => a.FindElement(By.Id("progressLabel")));
@@ -129,7 +130,7 @@ namespace OpexDownloader
                         driver.Close();
                         driver.SwitchTo().Window(driver.WindowHandles.First());
                         goto linkHasExpired;
-                    }                    
+                    }
                 }
 
                 driver.Close();
