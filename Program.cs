@@ -72,14 +72,34 @@ namespace OpexDownloader
                 {
                     try
                     {
-                        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(1));
-                        wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
+                        IWebElement downloadLink = driver.FindElement(By.XPath("//a[@id=\"link-final\" and @data-clicked=\"true\"]"));
+                        
+                        // if app reaches this line, it means that the JavaScript code has finished running.
+                        // now, we need to wait until we acquire an exclusive lock to the downloaded file, which means the browser has finished writting it.
+                        string fileName = downloadLink.GetAttribute("download");
+                        string filePath = Path.Combine(actualDownloadDirectory, fileName);
+                        
+                        async Task AcquireExclusiveLock()
+                        {
+                            while (true)
+                            {
+                                try
+                                {
+                                    using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
+                                    break;
+                                }
+                                catch (Exception ex)
+                                {
+                                    await Task.Delay(1000);
+                                    continue;
+                                }
+                            }
+                        }
 
-                        wait.Until(a => a.FindElement(By.XPath("//a[@id=\"link-final\" and @data-clicked=\"true\"]")));
-                        await Task.Delay(10000);
+                        await AcquireExclusiveLock();
                         break;
                     }
-                    catch (WebDriverTimeoutException ex)
+                    catch (NoSuchElementException ex)
                     {
                     }
 
