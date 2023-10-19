@@ -75,28 +75,16 @@ namespace OpexDownloader
                         IWebElement downloadLink = driver.FindElement(By.XPath("//a[@id=\"link-final\" and @data-clicked=\"true\"]"));
                         
                         // if app reaches this line, it means that the JavaScript code has finished running.
-                        // now, we need to wait until we acquire an exclusive lock to the downloaded file, which means the browser has finished writting it.
+                        // now, we need to wait until the browser move the downloaded file to its destination.
                         string fileName = downloadLink.GetAttribute("download");
                         string filePath = Path.Combine(actualDownloadDirectory, fileName);
                         
-                        async Task AcquireExclusiveLock()
-                        {
-                            while (true)
-                            {
-                                try
-                                {
-                                    using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-                                    break;
-                                }
-                                catch (Exception ex)
-                                {
-                                    await Task.Delay(1000);
-                                    continue;
-                                }
-                            }
-                        }
+                        while (!File.Exists(filePath))
+                            await Task.Delay(1000);
 
-                        await AcquireExclusiveLock();
+                        while (new FileInfo(filePath).Length == 0)
+                            await Task.Delay(1000);
+
                         break;
                     }
                     catch (NoSuchElementException ex)
