@@ -22,7 +22,6 @@ namespace OpexDownloader
             }
 
             var driverOptions = new FirefoxOptions();
-            //driverOptions.AddArgument("--headless");
             driverOptions.SetPreference("browser.download.folderList", 2);
             driverOptions.SetPreference("browser.download.dir", actualDownloadDirectory);
             driverOptions.SetPreference("browser.helperApps.neverAsk.saveToDisk", "video/mp4");
